@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Play Ludo for real money with TeleBirr payments">
+    <title>Ludo - Telegram Game</title>
+    
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Socket.IO for real-time -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/board.css">
+    <link rel="stylesheet" href="css/wallet.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading" class="loading-screen">
+        <div class="spinner"></div>
+        <p>Loading Ludo Game...</p>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" style="display: none;">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-left">
+                <h1>🎮 LUDO</h1>
+            </div>
+            <div class="nav-right">
+                <button id="walletBtn" class="nav-btn">
+                    💰 <span id="balanceDisplay">0 ETB</span>
+                </button>
+                <button id="profileBtn" class="nav-btn">
+                    👤
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Pages Container -->
+        <div class="pages">
+            <!-- Lobby Page -->
+            <div id="lobbyPage" class="page active">
+                <div class="lobby-container">
+                    <h2>Welcome to Ludo!</h2>
+                    
+                    <div class="lobby-section">
+                        <h3>Create New Game</h3>
+                        <div class="bet-selector">
+                            <input type="number" id="betAmount" placeholder="Bet Amount (ETB)" min="10" max="10000">
+                            <button id="createGameBtn" class="btn btn-primary">Create Game</button>
+                        </div>
+                    </div>
+
+                    <div class="lobby-section">
+                        <h3>Join Existing Game</h3>
+                        <div class="join-game">
+                            <input type="text" id="gameCode" placeholder="Enter game code" maxlength="8">
+                            <button id="joinGameBtn" class="btn btn-secondary">Join Game</button>
+                        </div>
+                    </div>
+
+                    <div id="recentGames" class="recent-games">
+                        <h3>Recent Games</h3>
+                        <div id="gamesList" class="games-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Page -->
+            <div id="gamePage" class="page">
+                <div class="game-container">
+                    <!-- Game Info -->
+                    <div class="game-info">
+                        <div class="info-item">
+                            <span>Game Code:</span>
+                            <span id="gameCodeDisplay">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span>Total Pot:</span>
+                            <span id="potDisplay">0 ETB</span>
+                        </div>
+                        <div class="info-item">
+                            <span>Players:</span>
+                            <span id="playersDisplay">0/4</span>
+                        </div>
+                    </div>
+
+                    <!-- Waiting for Players -->
+                    <div id="waitingArea" class="waiting-area">
+                        <h3>Waiting for players...</h3>
+                        <button id="startGameBtn" class="btn btn-primary">Start Game</button>
+                        <button id="cancelGameBtn" class="btn btn-danger">Cancel Game</button>
+                    </div>
+
+                    <!-- Game Board -->
+                    <div id="gameArea" style="display: none;">
+                        <canvas id="gameBoard"></canvas>
+                        
+                        <!-- Controls -->
+                        <div class="game-controls">
+                            <div id="currentTurnInfo" class="turn-info">
+                                <p id="turnText">Waiting to start...</p>
+                            </div>
+                            
+                            <button id="rollDiceBtn" class="btn btn-large" disabled>
+                                🎲 Roll Dice
+                            </button>
+
+                            <div id="diceResult" class="dice-result" style="display: none;">
+                                <p>You rolled: <span id="diceValue">0</span></p>
+                                <div id="validMoves" class="valid-moves"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Game Over -->
+                    <div id="gameOverArea" style="display: none;" class="game-over">
+                        <h2>Game Over!</h2>
+                        <div id="results" class="results"></div>
+                        <button id="playAgainBtn" class="btn btn-primary">Play Again</button>
+                        <button id="backToLobbyBtn" class="btn btn-secondary">Back to Lobby</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wallet Page -->
+            <div id="walletPage" class="page">
+                <div class="wallet-container">
+                    <h2>My Wallet</h2>
+
+                    <!-- Balance Display -->
+                    <div class="balance-card">
+                        <div class="balance-info">
+                            <p>Available Balance</p>
+                            <h1 id="walletBalance">0 ETB</h1>
+                        </div>
+                        <div class="balance-stats">
+                            <div class="stat">
+                                <span>Locked</span>
+                                <p id="lockedAmount">0 ETB</p>
+                            </div>
+                            <div class="stat">
+                                <span>Total Won</span>
+                                <p id="totalWon">0 ETB</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deposit/Withdrawal -->
+                    <div class="wallet-actions">
+                        <button id="depositBtn" class="btn btn-primary">
+                            💳 Deposit
+                        </button>
+                        <button id="withdrawBtn" class="btn btn-secondary">
+                            💸 Withdraw
+                        </button>
+                    </div>
+
+                    <!-- Deposit Modal -->
+                    <div id="depositModal" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <span class="close">&times;</span>
+                            <h3>Deposit Funds</h3>
+                            <form id="depositForm">
+                                <input type="number" id="depositAmount" placeholder="Amount (ETB)" min="50" required>
+                                <input type="tel" id="depositPhone" placeholder="Phone Number" required>
+                                <button type="submit" class="btn btn-primary">Deposit</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Withdrawal Modal -->
+                    <div id="withdrawModal" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <span class="close">&times;</span>
+                            <h3>Withdraw Funds</h3>
+                            <form id="withdrawForm">
+                                <input type="number" id="withdrawAmount" placeholder="Amount (ETB)" min="100" required>
+                                <input type="tel" id="withdrawPhone" placeholder="Phone Number" required>
+                                <button type="submit" class="btn btn-primary">Withdraw</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Transaction History -->
+                    <div class="transaction-history">
+                        <h3>Transaction History</h3>
+                        <div id="transactionsList" class="transactions-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Page -->
+            <div id="profilePage" class="page">
+                <div class="profile-container">
+                    <h2>My Profile</h2>
+
+                    <div class="profile-info">
+                        <img id="profilePhoto" src="" alt="Profile Photo" class="profile-photo">
+                        <div class="profile-details">
+                            <p><strong>Name:</strong> <span id="profileName">-</span></p>
+                            <p><strong>Username:</strong> <span id="profileUsername">-</span></p>
+                            <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+                            <p><strong>Phone:</strong> <span id="profilePhone">-</span></p>
+                        </div>
+                    </div>
+
+                    <div class="profile-stats">
+                        <h3>Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <p>Games Played</p>
+                                <h3 id="gamesPlayed">0</h3>
+                            </div>
+                            <div class="stat-card">
+                                <p>Games Won</p>
+                                <h3 id="gamesWon">0</h3>
+                            </div>
+                            <div class="stat-card">
+                                <p>Win Rate</p>
+                                <h3 id="winRate">0%</h3>
+                            </div>
+                            <div class="stat-card">
+                                <p>Total Winnings</p>
+                                <h3 id="totalWinnings">0 ETB</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="logoutBtn" class="btn btn-danger">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal error-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Error</h3>
+            <p id="errorMessage"></p>
+            <button class="btn btn-primary" onclick="document.getElementById('errorModal').style.display = 'none'">OK</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/telegram-auth.js"></script>
+    <script src="js/api-client.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/board-renderer.js"></script>
+</body>
+</html>
