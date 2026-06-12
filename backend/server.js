@@ -6,6 +6,7 @@ import { connectDatabase } from './models/index.js';
 import { corsHandler, errorHandler, createRateLimiter } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
 import walletRoutes from './routes/wallet.js';
+import gamesRoutes from './routes/games.js';
 
 dotenv.config();
 
@@ -20,8 +21,8 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 
 // Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // CORS
 app.use(corsHandler);
@@ -31,7 +32,7 @@ const rateLimiter = createRateLimiter(
   parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100')
 );
-app.use(rateLimiter);
+app.use('/api', rateLimiter);
 
 // ============================================
 // Database Connection
@@ -59,12 +60,14 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    database: dbConnection ? 'connected' : 'disconnected',
   });
 });
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/games', gamesRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -75,6 +78,7 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       wallet: '/api/wallet',
+      games: '/api/games',
       health: '/health',
     },
   });
@@ -103,9 +107,39 @@ const startServer = async () => {
 
     // Start listening
     app.listen(PORT, () => {
-      console.log(`✅ Server running on http://localhost:${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🗄️  Database: ${process.env.MONGODB_URI?.split('@')[1] || 'local'}`);
+      console.log(`
+╔════════════════════════════════════════════╗
+║   🎮 LUDO TELEGRAM GAME API STARTED 🎮    ║
+╚════════════════════════════════════════════╝
+
+✅ Server running on http://localhost:${PORT}
+📊 Environment: ${process.env.NODE_ENV || 'development'}
+🗄️  Database: ${process.env.MONGODB_URI?.split('@')[1]?.split('/')[0] || 'local'}
+🔐 JWT Secret: ${process.env.JWT_SECRET ? '✓ Set' : '✗ NOT SET'}
+💳 TeleBirr: ${process.env.TELEBIRR_API_KEY ? '✓ Configured' : '✗ NOT SET'}
+
+Available endpoints:
+  GET  /                    - Welcome
+  GET  /health              - Health check
+  
+  POST /api/auth/telegram   - Telegram login/signup
+  GET  /api/auth/profile    - Get user profile
+  PUT  /api/auth/profile    - Update profile
+  POST /api/auth/verify-phone - Verify phone
+
+  GET  /api/wallet/balance  - Get balance
+  POST /api/wallet/deposit  - Deposit via TeleBirr
+  POST /api/wallet/withdrawal - Withdraw via TeleBirr
+  GET  /api/wallet/transactions - Transaction history
+
+  POST /api/games/create    - Create new game
+  POST /api/games/join      - Join game
+  POST /api/games/:id/start - Start game
+  POST /api/games/:id/roll-dice - Roll dice
+  GET  /api/games/:id       - Get game state
+
+⚠️  Ready for WebSocket implementation (Socket.IO)
+      `);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
@@ -119,7 +153,15 @@ startServer();
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('📛 SIGTERM signal received: closing HTTP server');
-  dbConnection?.close(() => {
+  dbConnection?.close?.(() => {
+    console.log('✅ MongoDB connection closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('📛 SIGINT signal received: closing HTTP server');
+  dbConnection?.close?.(() => {
     console.log('✅ MongoDB connection closed');
     process.exit(0);
   });
